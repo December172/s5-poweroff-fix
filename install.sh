@@ -134,19 +134,28 @@ systemctl start s5-energy-log.service >/dev/null 2>&1 \
 # una instalacion perfecta —con el akmod ya puesto y el .ko construido para este
 # kernel— terminaba gritando "FALTA EL MODULO". Un aviso que salta cuando no pasa
 # nada es la forma mas rapida de que nadie lea los que si importan (regla 27).
-if ls /lib/modules/"$(uname -r)"/extra/s5-pmrt-arm/s5_pmrt_arm.ko* >/dev/null 2>&1; then
+#
+# TWO PLACES, because there are two packagings: akmod leaves it in
+# extra/s5-pmrt-arm/ and dkms in updates/dkms/ (see kmod/REBUILDING.md). Looking at
+# only the first made a dkms install - perfectly valid - collect the "missing"
+# warning.
+ko_akmod=$(ls /lib/modules/"$(uname -r)"/extra/s5-pmrt-arm/s5_pmrt_arm.ko* 2>/dev/null | head -1)
+ko_dkms=$(ls /lib/modules/"$(uname -r)"/updates/dkms/s5_pmrt_arm.ko* 2>/dev/null | head -1)
+ko_encontrado=${ko_akmod:-${ko_dkms:-}}
+if [ -n "$ko_encontrado" ]; then
     cat <<EOF
 
-== El modulo del kernel ya esta
-   /lib/modules/$(uname -r)/extra/s5-pmrt-arm/  (por akmod: se recompila solo)
+== The kernel module is already there
+   $ko_encontrado
+   ($([ -n "$ko_akmod" ] && echo "by akmod; it rebuilds itself" || echo "by dkms; it rebuilds itself"))
 EOF
 else
     cat <<'EOF'
 
-== FALTA EL MODULO DEL KERNEL
-El blindaje lo hace un modulo minusculo (s5_pmrt_arm). Va por akmod A PROPOSITO:
-asi akmods lo recompila solo en cada actualizacion de kernel. Sin el, todo lo
-demas corre pero NO ahorra nada.
+== THE KERNEL MODULE IS MISSING
+The shielding is done by a tiny module (s5_pmrt_arm). It ships via akmod (or via
+dkms outside Fedora) ON PURPOSE: that way it rebuilds itself on every kernel
+update. Without it everything else runs but saves NOTHING.
 
     cd kmod/ && cat REBUILDING.md
 EOF

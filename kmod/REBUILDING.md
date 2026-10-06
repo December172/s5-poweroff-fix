@@ -37,9 +37,28 @@ than silently shielding whatever happens to sit at some other machine's addresse
 You need `rpmbuild`, `kmodtool` and `kernel-devel`. On Fedora:
 `sudo dnf install rpm-build akmods kernel-devel`.
 
-**Outside Fedora/RHEL/SUSE there is no `akmods`.** The equivalent is DKMS: the tarball's
-`Makefile` works as-is, but you will need to write a `dkms.conf`. What you must **not**
-do is compile the `.ko` by hand and forget about it — see below.
+**Outside Fedora/RHEL/SUSE there is no `akmods`.** The equivalent is DKMS, and
+`s5-pmrt-arm-1.0/dkms.conf` is already in this directory for it — the directory is also the
+spec's `Source0`, so the tarball carries it. What you must **not** do is compile the `.ko` by
+hand and forget about it — see below.
+
+## DKMS (Arch, Debian, …)
+
+    sudo cp -r s5-pmrt-arm-1.0 /usr/src/s5-pmrt-arm-1.0     # dkms.conf travels inside
+    sudo dkms add     s5-pmrt-arm/1.0
+    sudo dkms build   s5-pmrt-arm/1.0 -k "$(uname -r)"
+    sudo dkms install s5-pmrt-arm/1.0 -k "$(uname -r)"
+
+`dkms` needs the kernel headers (`linux-headers` on Arch, `linux-headers-$(uname -r)` on
+Debian) and recompiles the module after every kernel update, which is the property the akmod
+gives you on Fedora and the only reason either packaging exists.
+
+Nothing loads it by itself here either: on Fedora `akmods` leaves the `.ko` where the `99y`
+hook can `modprobe` it, and dkms leaves it in `/usr/lib/modules/<version>/updates/dkms/`. The
+hook does the loading, so no `modules-load.d` entry is needed — and none should be added: this
+module's work happens in its init, and loading it at boot would shield the subtree for the
+whole uptime instead of for the poweroff.
+
 
 ## Checking it is still alive
 
